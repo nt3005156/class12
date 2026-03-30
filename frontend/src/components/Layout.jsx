@@ -33,6 +33,11 @@ export function Layout({ children, progressStats, onAuthOpen }) {
             <NavLink to="/" end className={linkClass}>
               Modules
             </NavLink>
+            {user?.role === "admin" && (
+              <NavLink to="/admin" className={linkClass}>
+                Admin
+              </NavLink>
+            )}
           </nav>
           <div className="flex items-center gap-2">
             {progressStats && pathname === "/" && (

@@ -1,72 +1,25 @@
-import crypto from "node:crypto";
-import Session from "../models/Session.js";
 import User from "../models/User.js";
+import {
+  hashPassword,
+  isAdminEmail,
+  isValidEmail,
+  sanitizeUser,
+  signAuthToken,
+  verifyPassword,
+} from "../utils/auth.js";
 
-const SESSION_DAYS = 7;
-
-function sanitizeUser(user) {
-  return {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    createdAt: user.createdAt,
-  };
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
-  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${derived}`;
-}
-
-function verifyPassword(password, storedHash) {
-  const [salt, original] = String(storedHash || "").split(":");
-  if (!salt || !original) return false;
-  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(original, "hex"), Buffer.from(derived, "hex"));
-}
-
-async function createSession(userId) {
-  const token = crypto.randomBytes(24).toString("hex");
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  await Session.create({ userId, token, expiresAt });
-  return token;
-}
-
-export async function authRequired(req, res, next) {
-  try {
-    const header = req.header("authorization") || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-    if (!token) {
-      return res.status(401).json({ error: "Login required" });
-    }
-
-    const session = await Session.findOne({ token }).lean();
-    if (!session || new Date(session.expiresAt).getTime() < Date.now()) {
-      if (session) {
-        await Session.deleteOne({ _id: session._id });
-      }
-      return res.status(401).json({ error: "Session expired. Please log in again." });
-    }
-
-    const user = await User.findById(session.userId).lean();
-    if (!user) {
-      await Session.deleteOne({ _id: session._id });
-      return res.status(401).json({ error: "Account no longer exists" });
-    }
-
-    req.auth = { token, sessionId: session._id, user };
-    next();
-  } catch (error) {
-    res.status(500).json({ error: "Authentication failed" });
+async function syncAdminRole(user) {
+  const shouldBeAdmin = isAdminEmail(user.email);
+  if (!shouldBeAdmin || user.role === "admin") {
+    return user;
   }
+
+  user.role = "admin";
+  await user.save();
+  return user;
 }
 
-export async function signup(req, res) {
+export async function register(req, res) {
   try {
     const name = String(req.body.name || "").trim();
     const email = String(req.body.email || "").trim().toLowerCase();
@@ -91,8 +44,9 @@ export async function signup(req, res) {
       name,
       email,
       passwordHash: hashPassword(password),
+      role: isAdminEmail(email) ? "admin" : "student",
     });
-    const token = await createSession(user._id);
+    const token = signAuthToken(user);
 
     res.status(201).json({ token, user: sanitizeUser(user) });
   } catch (error) {
@@ -109,12 +63,13 @@ export async function login(req, res) {
       return res.status(400).json({ error: "Email and password are required" });
     }
 
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email });
     if (!user || !verifyPassword(password, user.passwordHash)) {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    const token = await createSession(user._id);
+    user = await syncAdminRole(user);
+    const token = signAuthToken(user);
     res.json({ token, user: sanitizeUser(user) });
   } catch (error) {
     res.status(500).json({ error: "Could not log in" });
@@ -122,14 +77,9 @@ export async function login(req, res) {
 }
 
 export async function getMe(req, res) {
-  res.json({ user: sanitizeUser(req.auth.user) });
+  res.json({ user: req.auth.safeUser });
 }
 
-export async function logout(req, res) {
-  try {
-    await Session.deleteOne({ token: req.auth.token });
-    res.json({ ok: true });
-  } catch (error) {
-    res.status(500).json({ error: "Could not log out" });
-  }
+export async function logout(_req, res) {
+  res.json({ ok: true });
 }

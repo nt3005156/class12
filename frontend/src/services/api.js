@@ -1,8 +1,9 @@
 const base = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 async function fetchJson(path, options = {}) {
+  const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
   const res = await fetch(`${base}${path}`, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
     ...options,
   });
   if (!res.ok) {
@@ -33,25 +34,49 @@ export function getChapter(slug) {
   return fetchJson(`/api/notes/${encodeURIComponent(slug)}`);
 }
 
-/** Admin: create or update chapter — pass ADMIN_API_KEY in env for local tools */
-export function adminCreateNote(body, adminKey) {
+export function createAdminNote(body, token) {
   return fetchJson("/api/admin/notes", {
     method: "POST",
     body: JSON.stringify(body),
-    headers: { "x-admin-key": adminKey },
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
-export function adminUpdateNote(slug, body, adminKey) {
+export function updateAdminNote(slug, body, token) {
   return fetchJson(`/api/admin/notes/${encodeURIComponent(slug)}`, {
     method: "PUT",
     body: JSON.stringify(body),
-    headers: { "x-admin-key": adminKey },
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function deleteAdminNote(slug, token) {
+  return fetchJson(`/api/admin/notes/${encodeURIComponent(slug)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getAdminNotes(token) {
+  return fetchJson("/api/admin/notes", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getAdminMessages(token) {
+  return fetchJson("/api/admin/messages", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getAdminStats(token) {
+  return fetchJson("/api/admin/stats", {
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export function signupUser(body) {
-  return fetchJson("/api/auth/signup", {
+  return fetchJson("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(body),
   });

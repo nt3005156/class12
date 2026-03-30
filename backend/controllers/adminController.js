@@ -1,8 +1,6 @@
+import Message from "../models/Message.js";
 import Note from "../models/Note.js";
-
-function adminUnauthorized(res) {
-  return res.status(401).json({ error: "Invalid or missing admin key" });
-}
+import User from "../models/User.js";
 
 function validateNotePayload(body) {
   const title = String(body.title || "").trim();
@@ -25,12 +23,37 @@ function validateNotePayload(body) {
   return null;
 }
 
-export function verifyAdmin(req, res, next) {
-  const key = req.header("x-admin-key");
-  if (!key || key !== process.env.ADMIN_API_KEY) {
-    return adminUnauthorized(res);
+export async function getAdminStats(_req, res) {
+  try {
+    const [notes, messages, users, admins] = await Promise.all([
+      Note.countDocuments(),
+      Message.countDocuments(),
+      User.countDocuments(),
+      User.countDocuments({ role: "admin" }),
+    ]);
+
+    res.json({ notes, messages, users, admins });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
-  next();
+}
+
+export async function listNotes(_req, res) {
+  try {
+    const notes = await Note.find().sort({ order: 1, title: 1 }).lean();
+    res.json(notes);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
+export async function listMessages(_req, res) {
+  try {
+    const messages = await Message.find().sort({ createdAt: -1 }).lean();
+    res.json(messages);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 }
 
 export async function createNote(req, res) {
@@ -62,6 +85,18 @@ export async function updateNote(req, res) {
     );
     if (!doc) return res.status(404).json({ error: "Chapter not found" });
     res.json(doc);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+}
+
+export async function deleteNote(req, res) {
+  try {
+    const doc = await Note.findOneAndDelete({ slug: req.params.slug });
+    if (!doc) {
+      return res.status(404).json({ error: "Chapter not found" });
+    }
+    res.json({ ok: true, deletedSlug: req.params.slug });
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
