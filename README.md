@@ -157,6 +157,20 @@ Environment variables:
 
 After deploying the backend, run `npm run seed` once against the production database.
 
+### Render blueprint
+
+This repository now includes [`render.yaml`](/Users/nt30051/Documents/class12/render.yaml), so Render can detect the backend service settings automatically when you import the GitHub repository.
+
+Use these values in Render:
+
+```bash
+Service type: Web Service
+Root directory: backend
+Build command: npm install
+Start command: npm start
+Health check path: /api/health
+```
+
 ## Future improvements
 
 - Add password reset and email verification
