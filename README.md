@@ -1,134 +1,170 @@
-# NITEX — Class 12 Computer Science (MERN)
+# NITEX — Class 12 Computer Science Portal
 
-A dark, sci-fi themed learning shell for Class 12 Computer Science topics. The original legacy blog could not be scraped reliably; all module text here is **rewritten** for clarity and structured as API-driven chapters (not a copy-paste mirror).
+NITEX is a beginner-friendly full-stack study portal for Class 12 Computer Science. It turns a basic notes project into a polished MERN application with a responsive dashboard, real user authentication, progress tracking, bookmarks, search/filter tools, a backend contact form, and cleaner documentation.
 
-## Stack
+## Project purpose
 
-| Layer    | Tech |
-|----------|------|
-| UI       | React 18 (Vite), Tailwind CSS, Framer Motion |
-| 3D       | Three.js via `@react-three/fiber` + `@react-three/drei` |
-| API      | Node.js, Express |
-| Data     | MongoDB + Mongoose |
+This project helps students revise important Class 12 Computer Science topics such as DBMS, networking, web technology, OOP, software process models, and emerging technology. The notes are rewritten in simple language and presented inside a modern dashboard that feels closer to a real product than a classroom demo.
 
-## Repo layout
+## Features
 
-```
+- Responsive student dashboard for desktop, tablet, and mobile
+- Search, category filtering, sort options, bookmarks, and progress tracking
+- Real login and signup flow with MongoDB-backed users and sessions
+- Theme toggle for light mode and dark mode
+- Contact form connected to the backend and saved in MongoDB
+- Improved note detail page with clear hierarchy and animated sections
+- Admin API for adding and updating notes with validation
+- Better SEO metadata and semantic structure
+- Beginner-friendly comments in custom logic files
+
+## Tech stack
+
+| Layer | Tools |
+|------|------|
+| Frontend | React 18, Vite, Tailwind CSS, Framer Motion |
+| Backend | Node.js, Express |
+| Database | MongoDB with Mongoose |
+| State | React hooks + localStorage |
+
+## Folder structure
+
+```bash
 class12/
 ├── backend/
 │   ├── controllers/
 │   ├── models/
 │   ├── routes/
-│   ├── server.js
-│   └── seed.js
+│   ├── .env.example
+│   ├── seed.js
+│   └── server.js
 ├── frontend/
+│   ├── public/
 │   ├── src/
 │   │   ├── components/
-│   │   ├── pages/
 │   │   ├── hooks/
-│   │   └── services/api.js
-│   └── vite.config.js
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── utils/
+│   ├── .env.example
+│   └── index.html
 └── README.md
 ```
 
-## API endpoints
+## API overview
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/health` | Health check |
-| `GET` | `/api/notes` | List chapters (optional `?category=` `&q=`) |
-| `GET` | `/api/notes/search?q=` | Quick search (min 2 chars) |
-| `GET` | `/api/notes/:slug` | Full chapter with sections |
-| `POST` | `/api/admin/notes` | Create chapter (header `x-admin-key`) |
-| `PUT` | `/api/admin/notes/:slug` | Update chapter (header `x-admin-key`) |
+| Method | Route | Purpose |
+|------|------|------|
+| `GET` | `/api/health` | Check backend status |
+| `GET` | `/api/notes` | Get notes with optional search and category filters |
+| `GET` | `/api/notes/meta` | Get counts, categories, and popular tags |
+| `GET` | `/api/notes/:slug` | Get one full note |
+| `POST` | `/api/auth/signup` | Create a user account |
+| `POST` | `/api/auth/login` | Log in and create a session |
+| `GET` | `/api/auth/me` | Fetch current logged-in user |
+| `POST` | `/api/auth/logout` | End current session |
+| `POST` | `/api/contact` | Save a contact message |
+| `POST` | `/api/admin/notes` | Create a note with admin key |
+| `PUT` | `/api/admin/notes/:slug` | Update a note with admin key |
 
-## MongoDB document shape (`Note`)
+## Installation
 
-```json
-{
-  "title": "string",
-  "slug": "kebab-case",
-  "summary": "string",
-  "order": 0,
-  "category": "Data | Systems | …",
-  "tags": ["…"],
-  "readMinutes": 10,
-  "sections": [
-    {
-      "heading": "string",
-      "body": "Plain text; use **bold** spans",
-      "highlights": ["definition lines"]
-    }
-  ]
-}
+### 1. Clone the project
+
+```bash
+git clone https://github.com/nt3005156/class12.git
+cd class12
 ```
 
-## Run locally
-
-### Prerequisites
-
-- Node.js 18+
-- MongoDB running locally **or** a connection string (Atlas)
-
-### Backend
+### 2. Set up the backend
 
 ```bash
 cd backend
 cp .env.example .env
-# Edit MONGODB_URI and ADMIN_API_KEY
 npm install
 npm run seed
 npm run dev
 ```
 
-API defaults to `http://localhost:5001` (5000 is often busy on macOS due to AirPlay).
+Default backend URL: `http://localhost:5001`
 
-### Frontend
+Recommended `.env` values:
+
+```bash
+PORT=5001
+MONGODB_URI=mongodb://127.0.0.1:27017/class12_notes
+FRONTEND_ORIGIN=http://localhost:5173
+ADMIN_API_KEY=change-this-admin-key
+```
+
+### 3. Set up the frontend
 
 ```bash
 cd frontend
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-Vite serves `http://localhost:5173` and **proxies** `/api` to the backend.
+Default frontend URL: `http://localhost:5173`
 
-For production builds pointing at a remote API, set `VITE_API_URL` (see `frontend/.env.example`).
-
-## Bonus features (included)
-
-- **Bookmarks** and **progress** via `localStorage` (no login).
-- **Study Copilot**: offline tips panel (not a hosted LLM).
-- **Code splitting**: lazy routes + manual vendor chunks in Vite.
-
-## Deploy (optional)
-
-**Frontend — Vercel**
-
-1. Root directory: `frontend`
-2. Build: `npm run build`
-3. Output: `dist`
-4. Environment: ` VITE_API_URL=https://your-api.example.com` (no trailing slash)
-
-**Backend — Render / Railway / Fly**
-
-1. Root directory: `backend`
-2. Start: `npm start`
-3. Env: `MONGODB_URI`, `ADMIN_API_KEY`, `FRONTEND_ORIGIN` (your Vercel URL for CORS)
-
-After deploy, re-run seed against production MongoDB once (or use admin `POST`).
-
-## Admin curl examples
+Example frontend env:
 
 ```bash
-export KEY=your-admin-key
-
-curl -X POST http://localhost:5001/api/admin/notes \
-  -H "Content-Type: application/json" \
-  -H "x-admin-key: $KEY" \
-  -d '{"title":"Test","slug":"test","summary":"s","sections":[]}'
+VITE_API_URL=http://localhost:5001
 ```
+
+## Build checks
+
+These commands were used to verify the upgraded project:
+
+```bash
+cd backend && node --check server.js
+cd frontend && npm run build
+```
+
+## Screenshots
+
+Suggested screenshots to add after running the app locally:
+
+1. Dashboard with search, stats, and module cards
+2. Note detail page
+3. Login/signup modal
+4. Contact form success state
+5. Light mode and dark mode comparison
+
+## Deployment guide
+
+### Frontend on Vercel or Netlify
+
+```bash
+Root directory: frontend
+Build command: npm run build
+Publish directory: dist
+Environment variable: VITE_API_URL=https://your-backend-url.com
+```
+
+### Backend on Render, Railway, or Fly.io
+
+```bash
+Root directory: backend
+Start command: npm start
+Environment variables:
+- MONGODB_URI
+- FRONTEND_ORIGIN
+- ADMIN_API_KEY
+```
+
+After deploying the backend, run `npm run seed` once against the production database.
+
+## Future improvements
+
+- Add password reset and email verification
+- Create a real admin dashboard for note and message management
+- Move student progress from localStorage to MongoDB per user
+- Add tests for backend routes and frontend components
+- Upload screenshots and live demo links to this README
 
 ## License
 
-Educational project scaffold. Module text is original to this repository for teaching purposes.
+Educational project for learning and portfolio use.

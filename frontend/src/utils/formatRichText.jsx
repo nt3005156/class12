@@ -15,7 +15,7 @@ function formatLine(line) {
     const m = part.match(/^\*\*([^*]+)\*\*$/);
     if (m) {
       return (
-        <strong key={i} className="text-white">
+        <strong key={i} className="text-[var(--text-strong)]">
           {m[1]}
         </strong>
       );

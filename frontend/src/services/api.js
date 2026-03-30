@@ -1,5 +1,4 @@
-const base =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
+const base = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 async function fetchJson(path, options = {}) {
   const res = await fetch(`${base}${path}`, {
@@ -19,6 +18,10 @@ export function getChapters(params = {}) {
   if (params.q) qs.set("q", params.q);
   const suffix = qs.toString() ? `?${qs}` : "";
   return fetchJson(`/api/notes${suffix}`);
+}
+
+export function getDashboardMeta() {
+  return fetchJson("/api/notes/meta");
 }
 
 export function searchChapters(q) {
@@ -44,5 +47,39 @@ export function adminUpdateNote(slug, body, adminKey) {
     method: "PUT",
     body: JSON.stringify(body),
     headers: { "x-admin-key": adminKey },
+  });
+}
+
+export function signupUser(body) {
+  return fetchJson("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function loginUser(body) {
+  return fetchJson("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function getCurrentUser(token) {
+  return fetchJson("/api/auth/me", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function logoutUser(token) {
+  return fetchJson("/api/auth/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function sendContactMessage(body) {
+  return fetchJson("/api/contact", {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }

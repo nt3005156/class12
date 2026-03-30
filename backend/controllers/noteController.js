@@ -24,6 +24,32 @@ export async function getAllNotes(req, res) {
   }
 }
 
+export async function getNoteMeta(_req, res) {
+  try {
+    const [total, categories, tags] = await Promise.all([
+      Note.countDocuments(),
+      Note.aggregate([
+        { $group: { _id: "$category", count: { $sum: 1 } } },
+        { $sort: { count: -1, _id: 1 } },
+      ]),
+      Note.aggregate([
+        { $unwind: { path: "$tags", preserveNullAndEmptyArrays: false } },
+        { $group: { _id: "$tags", count: { $sum: 1 } } },
+        { $sort: { count: -1, _id: 1 } },
+        { $limit: 8 },
+      ]),
+    ]);
+
+    res.json({
+      total,
+      categories: categories.map((item) => ({ name: item._id, count: item.count })),
+      topTags: tags.map((item) => ({ name: item._id, count: item.count })),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
+
 export async function searchNotes(req, res) {
   try {
     const { q } = req.query;

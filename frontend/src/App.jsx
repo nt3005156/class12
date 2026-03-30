@@ -1,11 +1,12 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout.jsx";
 import { SciFiBackground } from "./components/SciFiBackground.jsx";
 import { StudyCopilot } from "./components/StudyCopilot.jsx";
 import { useProgress } from "./hooks/useProgress.js";
-import { useEffect, useState } from "react";
-import { getChapters } from "./services/api.js";
+import { getDashboardMeta } from "./services/api.js";
+import { AuthModal } from "./components/AuthModal.jsx";
+import { useAuth } from "./hooks/useAuth.jsx";
 
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
 const NoteDetail = lazy(() => import("./pages/NoteDetail.jsx"));
@@ -26,20 +27,43 @@ function Shell({ children }) {
 
 function AppInner() {
   const { stats } = useProgress();
+  const { login, signup, loading } = useAuth();
   const [total, setTotal] = useState(7);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
-    getChapters()
-      .then((rows) => setTotal(rows.length || 7))
+    getDashboardMeta()
+      .then((data) => setTotal(data.total || 7))
       .catch(() => {});
   }, []);
 
   const progressStats = stats(total);
 
+  async function handleAuthSubmit(payload) {
+    setAuthLoading(true);
+    try {
+      if (authMode === "login") {
+        await login(payload);
+      } else {
+        await signup(payload);
+      }
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   return (
     <>
       <SciFiBackground />
-      <Layout progressStats={progressStats}>
+      <Layout
+        progressStats={progressStats}
+        onAuthOpen={(mode) => {
+          setAuthMode(mode);
+          setAuthOpen(true);
+        }}
+      >
         <Routes>
           <Route
             path="/"
@@ -60,6 +84,14 @@ function AppInner() {
         </Routes>
       </Layout>
       <StudyCopilot />
+      <AuthModal
+        open={authOpen}
+        mode={authMode}
+        onClose={() => setAuthOpen(false)}
+        onModeChange={setAuthMode}
+        onSubmit={handleAuthSubmit}
+        loading={authLoading || loading}
+      />
     </>
   );
 }
