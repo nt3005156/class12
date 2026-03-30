@@ -11,8 +11,8 @@ export default {
         glass: "rgba(20, 28, 48, 0.55)",
       },
       fontFamily: {
-        display: ["Orbitron", "ui-sans-serif", "system-ui", "sans-serif"],
-        body: ["DM Sans", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Space Grotesk", "ui-sans-serif", "system-ui", "sans-serif"],
+        body: ["Manrope", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       boxShadow: {
         neon: "0 0 20px rgba(34, 211, 238, 0.25), 0 0 60px rgba(167, 139, 250, 0.15)",

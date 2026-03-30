@@ -4,6 +4,8 @@ import cors from "cors";
 import mongoose from "mongoose";
 import notesRouter from "./routes/notes.js";
 import adminRouter from "./routes/admin.js";
+import authRouter from "./routes/auth.js";
+import contactRouter from "./routes/contact.js";
 
 const app = express();
 // 5001 default: macOS often reserves 5000 for AirPlay Receiver (Control Center)
@@ -24,6 +26,8 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/notes", notesRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/contact", contactRouter);
 
 async function main() {
   await mongoose.connect(MONGODB_URI);

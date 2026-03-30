@@ -1,29 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { getChapters } from "../services/api.js";
+import { getChapters, getDashboardMeta } from "../services/api.js";
 import { ChapterCard } from "../components/ChapterCard.jsx";
 import { SearchBar } from "../components/SearchBar.jsx";
 import { useBookmarks } from "../hooks/useBookmarks.js";
 import { useProgress } from "../hooks/useProgress.js";
-
-function useDebounced(value, ms) {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-}
+import { DashboardStats } from "../components/DashboardStats.jsx";
+import { ContactForm } from "../components/ContactForm.jsx";
+import { useAuth } from "../hooks/useAuth.jsx";
 
 export default function Dashboard() {
   const [list, setList] = useState([]);
+  const [meta, setMeta] = useState({ total: 0, categories: [], topTags: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
-  const debounced = useDebounced(query, 220);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("recommended");
+  const deferredQuery = useDeferredValue(query);
   const { slugs, toggle, has } = useBookmarks();
   const { map, stats } = useProgress();
+  const { user } = useAuth();
 
   useEffect(() => {
     let cancelled = false;
@@ -31,8 +29,14 @@ export default function Dashboard() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getChapters({ q: debounced || undefined, category: category || undefined });
-        if (!cancelled) setList(data);
+        const [notes, nextMeta] = await Promise.all([
+          getChapters({ q: deferredQuery || undefined, category: category || undefined }),
+          getDashboardMeta(),
+        ]);
+        if (!cancelled) {
+          setList(notes);
+          setMeta(nextMeta);
+        }
       } catch (e) {
         if (!cancelled) setError(e.message);
       } finally {
@@ -42,91 +46,201 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [debounced, category]);
+  }, [deferredQuery, category]);
 
   const categories = useMemo(() => {
-    const s = new Set(list.map((c) => c.category).filter(Boolean));
-    return Array.from(s).sort();
-  }, [list]);
+    return meta.categories.map((item) => item.name);
+  }, [meta.categories]);
 
-  const s = stats(list.length);
+  const visibleList = useMemo(() => {
+    const filtered = list.filter((chapter) => {
+      if (statusFilter === "bookmarked") return has(chapter.slug);
+      if (statusFilter === "completed") return Boolean(map[chapter.slug]?.completed);
+      if (statusFilter === "in-progress") {
+        return Boolean(map[chapter.slug]?.visited) && !map[chapter.slug]?.completed;
+      }
+      return true;
+    });
+
+    const sorted = [...filtered];
+    if (sortBy === "title") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (sortBy === "time") {
+      sorted.sort((a, b) => (a.readMinutes || 0) - (b.readMinutes || 0));
+    } else if (sortBy === "bookmarks") {
+      sorted.sort((a, b) => Number(has(b.slug)) - Number(has(a.slug)));
+    } else {
+      sorted.sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return sorted;
+  }, [has, list, map, sortBy, statusFilter]);
+
+  const s = stats(meta.total || list.length);
+  const statItems = [
+    { label: "Total modules", value: meta.total || list.length, hint: "API powered" },
+    { label: "Completed", value: s.completed, hint: `${s.pct}% progress` },
+    { label: "Bookmarks", value: slugs.length, hint: "Quick revision" },
+    { label: "Top category", value: meta.categories[0]?.name || "Core", hint: "Most content" },
+  ];
+  const statusOptions = [
+    { value: "all", label: "All modules" },
+    { value: "bookmarked", label: "Bookmarked" },
+    { value: "completed", label: "Completed" },
+    { value: "in-progress", label: "In progress" },
+  ];
+
+  useEffect(() => {
+    document.title = "NITEX | Class 12 Computer Science Dashboard";
+  }, []);
 
   return (
-    <div>
+    <div className="space-y-8 sm:space-y-10">
       <motion.section
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="glass-panel neon-border relative overflow-hidden rounded-3xl p-6 sm:p-10"
+        className="hero-panel relative overflow-hidden rounded-[36px] p-6 sm:p-10"
       >
-        <div className="pointer-events-none absolute -left-20 top-0 h-56 w-56 rounded-full bg-violet-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -right-16 bottom-0 h-40 w-40 rounded-full bg-cyan-400/15 blur-3xl" />
-        <p className="text-xs font-medium uppercase tracking-[0.35em] text-cyan-300/90">Mission briefing</p>
-        <h1 className="mt-3 font-display text-3xl font-bold leading-tight text-white sm:text-4xl">
-          Class 12 Computer Science
-          <span className="block bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-400 bg-clip-text text-transparent">
-            Structured for deep focus
-          </span>
-        </h1>
-        <p className="mt-4 max-w-2xl text-slate-400">
-          Neon-clear summaries, exam-ready definitions, and modules you can actually browse on a phone.
-          Content is rewritten in our own words for learning—not a mirror of any single legacy page.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-2 text-xs text-slate-500">
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">DBMS</span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Networks</span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Web</span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">C &amp; OOP</span>
-          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">SDLC</span>
+        <div className="pointer-events-none absolute -left-20 top-0 h-56 w-56 rounded-full bg-[var(--orb-three)] blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-0 h-40 w-40 rounded-full bg-[var(--orb-one)] blur-3xl" />
+        <div className="relative grid gap-8 lg:grid-cols-[1.3fr_0.7fr] lg:items-end">
+          <div>
+            <p className="eyebrow">Modern student dashboard</p>
+            <h1 className="mt-3 font-display text-3xl font-semibold leading-tight text-[var(--text-strong)] sm:text-5xl">
+              Study smarter with a clean Class 12 CS portal
+            </h1>
+            <p className="mt-4 max-w-2xl text-base text-[var(--muted)] sm:text-lg">
+              Search notes, track your progress, bookmark difficult chapters, switch themes, log in
+              with a real account, and send feedback through the backend.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              {(meta.topTags.length ? meta.topTags : [{ name: "DBMS" }, { name: "Networking" }, { name: "OOP" }]).map((tag) => (
+                <span key={tag.name} className="app-chip">
+                  {tag.name}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="app-subtle-card rounded-[28px] p-5">
+              <p className="text-sm font-medium text-[var(--muted)]">
+                {user ? `Welcome back, ${user.name.split(" ")[0]}` : "Guest mode"}
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">
+                {s.completed === 0 ? "Start with DBMS" : `${s.completed} chapter${s.completed > 1 ? "s" : ""} completed`}
+              </p>
+              <p className="mt-2 text-sm text-[var(--muted)]">
+                {user
+                  ? "Your account is active. Progress stays on your device and your profile is stored in the database."
+                  : "Create an account to make the project feel like a complete real-world app."}
+              </p>
+            </div>
+            <div className="app-subtle-card rounded-[28px] p-5">
+              <p className="text-sm font-medium text-[var(--muted)]">Available categories</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {categories.map((item) => (
+                  <span key={item} className="app-subtle-chip">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </motion.section>
 
-      <div className="mt-10 grid gap-4 lg:grid-cols-[1fr_280px]">
-        <SearchBar
-          value={query}
-          onChange={setQuery}
-          placeholder="Search modules, tags, summaries…"
-        />
-        <div className="glass-panel flex flex-wrap items-center gap-2 rounded-2xl px-3 py-2">
-          <span className="px-1 text-xs uppercase tracking-wider text-slate-500">Filter</span>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="flex-1 min-w-[8rem] rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100 outline-none"
-            aria-label="Filter by category"
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <DashboardStats items={statItems} />
 
-      <div className="mt-6 mb-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-        <span>
-          {loading ? "Scanning archive…" : `${list.length} modules`}
-        </span>
+      <section className="grid gap-4 xl:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px_220px]">
+            <SearchBar
+              value={query}
+              onChange={setQuery}
+              placeholder="Search modules, tags, summaries…"
+            />
+            <select
+              value={category}
+              onChange={(event) => setCategory(event.target.value)}
+              className="app-input"
+              aria-label="Filter by category"
+            >
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value)}
+              className="app-input"
+              aria-label="Sort modules"
+            >
+              <option value="recommended">Recommended order</option>
+              <option value="title">Alphabetical</option>
+              <option value="time">Shortest read first</option>
+              <option value="bookmarks">Bookmarked first</option>
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {statusOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={statusFilter === option.value ? "button-primary" : "button-secondary"}
+                onClick={() => setStatusFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <aside className="app-panel rounded-[28px] p-5">
+          <p className="eyebrow">Study snapshot</p>
+          <div className="mt-4 space-y-4">
+            <div className="app-subtle-card rounded-2xl p-4">
+              <p className="text-sm font-medium text-[var(--muted)]">Progress</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--text-strong)]">{s.pct}%</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                {s.completed} of {s.total || meta.total} modules marked as studied.
+              </p>
+            </div>
+            <div className="app-subtle-card rounded-2xl p-4">
+              <p className="text-sm font-medium text-[var(--muted)]">Revision list</p>
+              <p className="mt-1 text-2xl font-semibold text-[var(--text-strong)]">{slugs.length}</p>
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Bookmarks help you build a quick exam revision queue.
+              </p>
+            </div>
+            <div className="app-subtle-card rounded-2xl p-4">
+              <p className="text-sm font-medium text-[var(--muted)]">Recommended next step</p>
+              <p className="mt-1 text-base font-semibold text-[var(--text-strong)]">
+                {visibleList[0]?.title || "Clear filters to see modules"}
+              </p>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <div className="mb-2 flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
+        <span>{loading ? "Loading modules..." : `${visibleList.length} modules shown`}</span>
         {slugs.length > 0 && (
-          <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-amber-200/90">
+          <span className="rounded-full bg-amber-500/12 px-3 py-1 text-[var(--text-strong)]">
             {slugs.length} bookmarked
           </span>
         )}
-        <span className="hidden sm:inline">
-          Progress: {s.completed}/{s.total} marked done ({s.pct}%)
-        </span>
       </div>
 
       {error && (
-        <div className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {error} — Are MongoDB and the API running? Try{" "}
-          <code className="rounded bg-black/30 px-1">npm run dev</code> in <code className="rounded bg-black/30 px-1">backend</code>.
+        <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+          {error} — Make sure MongoDB and the backend server are running.
         </div>
       )}
 
-      <div className="mt-6 grid gap-5 sm:grid-cols-2">
-        {list.map((chapter, index) => (
+      <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {visibleList.map((chapter, index) => (
           <ChapterCard
             key={chapter.slug}
             chapter={chapter}
@@ -136,11 +250,20 @@ export default function Dashboard() {
             completed={!!map[chapter.slug]?.completed}
           />
         ))}
-      </div>
+      </section>
 
-      {!loading && list.length === 0 && (
-        <p className="mt-10 text-center text-slate-500">No modules match that query.</p>
+      {!loading && visibleList.length === 0 && (
+        <section className="app-panel rounded-[28px] p-10 text-center">
+          <h2 className="font-display text-2xl font-semibold text-[var(--text-strong)]">
+            No modules matched these filters
+          </h2>
+          <p className="mt-3 text-[var(--muted)]">
+            Try removing a filter, changing the keyword, or switching back to the recommended order.
+          </p>
+        </section>
       )}
+
+      <ContactForm user={user} />
     </div>
   );
 }
