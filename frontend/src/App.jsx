@@ -7,9 +7,12 @@ import { useProgress } from "./hooks/useProgress.js";
 import { getDashboardMeta } from "./services/api.js";
 import { AuthModal } from "./components/AuthModal.jsx";
 import { useAuth } from "./hooks/useAuth.jsx";
+import { RequireAdmin } from "./components/RequireAdmin.jsx";
 
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
 const NoteDetail = lazy(() => import("./pages/NoteDetail.jsx"));
+const AdminPage = lazy(() => import("./pages/AdminPage.jsx"));
+const AdminLoginPage = lazy(() => import("./pages/AdminLoginPage.jsx"));
 
 function Shell({ children }) {
   return (
@@ -78,6 +81,16 @@ function AppInner() {
             element={
               <Shell>
                 <NoteDetail />
+              </Shell>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <Shell>
+                <RequireAdmin fallback={<AdminLoginPage />}>
+                  <AdminPage />
+                </RequireAdmin>
               </Shell>
             }
           />

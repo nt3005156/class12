@@ -10,11 +10,12 @@ This project helps students revise important Class 12 Computer Science topics su
 
 - Responsive student dashboard for desktop, tablet, and mobile
 - Search, category filtering, sort options, bookmarks, and progress tracking
-- Real login and signup flow with MongoDB-backed users and sessions
+- Real login and signup flow with JWT authentication and MongoDB-backed users
 - Theme toggle for light mode and dark mode
 - Contact form connected to the backend and saved in MongoDB
+- Admin panel with overview, note management, and contact message review
 - Improved note detail page with clear hierarchy and animated sections
-- Admin API for adding and updating notes with validation
+- Role-based admin API protected by JWT middleware
 - Better SEO metadata and semantic structure
 - Beginner-friendly comments in custom logic files
 
@@ -59,13 +60,17 @@ class12/
 | `GET` | `/api/notes` | Get notes with optional search and category filters |
 | `GET` | `/api/notes/meta` | Get counts, categories, and popular tags |
 | `GET` | `/api/notes/:slug` | Get one full note |
-| `POST` | `/api/auth/signup` | Create a user account |
-| `POST` | `/api/auth/login` | Log in and create a session |
+| `POST` | `/api/auth/register` | Create a user account |
+| `POST` | `/api/auth/login` | Log in and receive a JWT |
 | `GET` | `/api/auth/me` | Fetch current logged-in user |
-| `POST` | `/api/auth/logout` | End current session |
+| `POST` | `/api/auth/logout` | Client logout helper |
 | `POST` | `/api/contact` | Save a contact message |
-| `POST` | `/api/admin/notes` | Create a note with admin key |
-| `PUT` | `/api/admin/notes/:slug` | Update a note with admin key |
+| `GET` | `/api/admin/stats` | Get admin dashboard stats |
+| `GET` | `/api/admin/notes` | List notes for admin editing |
+| `POST` | `/api/admin/notes` | Create a note as admin |
+| `PUT` | `/api/admin/notes/:slug` | Update a note as admin |
+| `DELETE` | `/api/admin/notes/:slug` | Delete a note as admin |
+| `GET` | `/api/admin/messages` | Read contact messages as admin |
 
 ## Installation
 
@@ -94,7 +99,8 @@ Recommended `.env` values:
 PORT=5001
 MONGODB_URI=mongodb://127.0.0.1:27017/class12_notes
 FRONTEND_ORIGIN=http://localhost:5173
-ADMIN_API_KEY=change-this-admin-key
+JWT_SECRET=change-this-jwt-secret
+ADMIN_EMAILS=admin@example.com
 ```
 
 ### 3. Set up the frontend
@@ -131,7 +137,8 @@ Suggested screenshots to add after running the app locally:
 2. Note detail page
 3. Login/signup modal
 4. Contact form success state
-5. Light mode and dark mode comparison
+5. Admin dashboard with notes manager
+6. Light mode and dark mode comparison
 
 ## Deployment guide
 
@@ -152,10 +159,13 @@ Start command: npm start
 Environment variables:
 - MONGODB_URI
 - FRONTEND_ORIGIN
-- ADMIN_API_KEY
+- JWT_SECRET
+- ADMIN_EMAILS
 ```
 
 After deploying the backend, run `npm run seed` once against the production database.
+
+The admin panel works with any account whose email is listed in `ADMIN_EMAILS`. Existing users can also be promoted manually by changing their `role` field to `"admin"` in MongoDB.
 
 ### Render blueprint
 
@@ -174,7 +184,6 @@ Health check path: /api/health
 ## Future improvements
 
 - Add password reset and email verification
-- Create a real admin dashboard for note and message management
 - Move student progress from localStorage to MongoDB per user
 - Add tests for backend routes and frontend components
 - Upload screenshots and live demo links to this README
