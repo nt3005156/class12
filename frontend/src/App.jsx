@@ -8,6 +8,8 @@ import { getDashboardMeta } from "./services/api.js";
 import { AuthModal } from "./components/AuthModal.jsx";
 import { useAuth } from "./hooks/useAuth.jsx";
 import { RequireAdmin } from "./components/RequireAdmin.jsx";
+import { ScrollRestoration } from "./components/ScrollRestoration.jsx";
+import { VisitorCounter } from "./components/VisitorCounter.jsx";
 
 const Dashboard = lazy(() => import("./pages/Dashboard.jsx"));
 const NoteDetail = lazy(() => import("./pages/NoteDetail.jsx"));
@@ -59,6 +61,7 @@ function AppInner() {
 
   return (
     <>
+      <ScrollRestoration />
       <SciFiBackground />
       <Layout
         progressStats={progressStats}
@@ -97,6 +100,7 @@ function AppInner() {
         </Routes>
       </Layout>
       <StudyCopilot />
+      <VisitorCounter />
       <AuthModal
         open={authOpen}
         mode={authMode}
