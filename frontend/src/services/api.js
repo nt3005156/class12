@@ -108,3 +108,13 @@ export function sendContactMessage(body) {
     body: JSON.stringify(body),
   });
 }
+
+export function getVisitorCount() {
+  return fetchJson("/api/site/visits");
+}
+
+export function registerVisitor() {
+  return fetchJson("/api/site/visits", {
+    method: "POST",
+  });
+}
