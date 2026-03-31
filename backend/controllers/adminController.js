@@ -2,6 +2,51 @@ import Message from "../models/Message.js";
 import Note from "../models/Note.js";
 import User from "../models/User.js";
 
+function parsePossibleJson(value, fallback) {
+  if (typeof value !== "string") return value ?? fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function pickRawPayload(body) {
+  if (body && typeof body === "object" && !Array.isArray(body)) {
+    return body.note || body.payload || body.data || body;
+  }
+  return parsePossibleJson(body, {});
+}
+
+function normalizeNotePayload(body) {
+  const raw = pickRawPayload(body);
+  const parsedSections = parsePossibleJson(raw.sections, []);
+  const parsedTags = parsePossibleJson(raw.tags, []);
+
+  return {
+    title: String(raw.title || raw.name || "").trim(),
+    slug: String(raw.slug || "").trim().toLowerCase(),
+    summary: String(raw.summary || raw.description || "").trim(),
+    order: Number(raw.order) || 0,
+    category: String(raw.category || "Core").trim() || "Core",
+    readMinutes: Number(raw.readMinutes) || 8,
+    tags: Array.isArray(parsedTags)
+      ? parsedTags.map((item) => String(item).trim()).filter(Boolean)
+      : [],
+    sections: Array.isArray(parsedSections)
+      ? parsedSections.map((section) => ({
+          heading: String(section?.heading || "").trim(),
+          body: String(section?.body || "").trim(),
+          highlights: Array.isArray(parsePossibleJson(section?.highlights, []))
+            ? parsePossibleJson(section?.highlights, [])
+                .map((item) => String(item).trim())
+                .filter(Boolean)
+            : [],
+        }))
+      : [],
+  };
+}
+
 function validateNotePayload(body) {
   const title = String(body.title || "").trim();
   const slug = String(body.slug || "").trim();
@@ -58,11 +103,12 @@ export async function listMessages(_req, res) {
 
 export async function createNote(req, res) {
   try {
-    const validationError = validateNotePayload(req.body);
+    const payload = normalizeNotePayload(req.body);
+    const validationError = validateNotePayload(payload);
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
-    const doc = await Note.create(req.body);
+    const doc = await Note.create(payload);
     res.status(201).json(doc);
   } catch (e) {
     if (e.code === 11000) {
@@ -74,13 +120,17 @@ export async function createNote(req, res) {
 
 export async function updateNote(req, res) {
   try {
-    const validationError = validateNotePayload({ ...req.body, slug: req.params.slug });
+    const payload = {
+      ...normalizeNotePayload(req.body),
+      slug: String(req.params.slug || "").trim().toLowerCase(),
+    };
+    const validationError = validateNotePayload(payload);
     if (validationError) {
       return res.status(400).json({ error: validationError });
     }
     const doc = await Note.findOneAndUpdate(
       { slug: req.params.slug },
-      { $set: req.body },
+      { $set: payload },
       { new: true, runValidators: true }
     );
     if (!doc) return res.status(404).json({ error: "Chapter not found" });
